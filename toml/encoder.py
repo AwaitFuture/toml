@@ -3,7 +3,7 @@ import re
 import sys
 from decimal import Decimal
 
-from toml.decoder import InlineTableDict
+from toml.decoder import InlineTableDict, InlineListOfTableDict
 
 if sys.version_info >= (3,):
     unicode = str
@@ -170,6 +170,23 @@ class TomlEncoder(object):
             return retval
         else:
             return unicode(self.dump_value(section))
+    
+    def dump_list_of_inline_table(self, section, prefix=""):
+        """Preserve inline table in its compact syntax instead of expanding
+        into subsection.
+
+        https://github.com/toml-lang/toml#user-content-inline-table
+        """
+        retval = ""
+        if isinstance(section, dict):
+            val_list = []
+            for k, v in section.items():
+                val = self.dump_list_of_inline_table(v, prefix=prefix)
+                val_list.append(k + " = " + val)
+            retval += prefix + "{ " + ", ".join(val_list) + " },\n"
+            return retval
+        else:
+            return unicode(self.dump_value(section))
 
     def dump_value(self, v):
         # Lookup function corresponding to v's type
@@ -177,7 +194,7 @@ class TomlEncoder(object):
         if dump_fn is None and hasattr(v, '__iter__'):
             dump_fn = self.dump_funcs[list]
         # Evaluate function (if it exists) else return v
-        return dump_fn(v) if dump_fn is not None else self.dump_funcs[str](v)
+        return dump_fn(v) if dump_fn is not None else v
 
     def dump_sections(self, o, sup):
         retstr = ""
@@ -196,7 +213,12 @@ class TomlEncoder(object):
                     for a in o[section]:
                         if isinstance(a, dict):
                             arrayoftables = True
-                if arrayoftables:
+                if isinstance(o[section], InlineListOfTableDict) and arrayoftables:
+                    arraystr += qsection + " = [\n"
+                    for a in o[section]:
+                        arraystr += self.dump_list_of_inline_table(a, prefix="\t")
+                    arraystr += "]\n"
+                elif arrayoftables:
                     for a in o[section]:
                         arraytabstr = "\n"
                         arraystr += "[[" + sup + qsection + "]]\n"

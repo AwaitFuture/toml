@@ -631,6 +631,9 @@ def _unescape(v):
 class InlineTableDict(object):
     """Sentinel subclass of dict for inline tables."""
 
+class InlineListOfTableDict(object):
+    """:("""
+
 
 class TomlDecoder(object):
 
